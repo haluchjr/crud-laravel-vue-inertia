@@ -1,0 +1,101 @@
+# Estrutura do Projeto: Laravel 11 + Breeze (Vue + Inertia)
+
+Este documento mapeia todos os arquivos modificados ou adicionados ao projeto em relação ao esqueleto padrão do Laravel 11 com a stack Breeze (Vue.js + Inertia.js).
+
+---
+
+## Legenda
+
+| Símbolo | Significado | Descrição |
+| :---: | :--- | :--- |
+| `[+]` | **Arquivo Novo** | O arquivo não existia no esqueleto padrão e foi criado. |
+| `[M]` | **Arquivo Modificado** | O arquivo já existia no esqueleto padrão, mas sofreu alterações. |
+
+---
+
+## Árvore de Diretórios
+
+```text
+RAIZ
+├── [M] .env
+├── [M] composer.json                           (telescope, pt-br-localization)
+├── [M] package.json                            (bootstrap, bootstrap-icons, @popperjs/core)
+├── [M] vite.config.js                          (host 0.0.0.0, porta, cors, hmr, polling)
+├── [+] docker-compose.yml
+└── [+] docker/
+    └── php8.3/
+        ├── [+] Dockerfile
+        └── [+] php.ini
+
+APP
+└── app/
+    ├── Http/
+    │   ├── Controllers/
+    │   │   ├── [+] CrudController.php          (index, store, update, destroy)
+    │   │   └── Auth/
+    │   │       ├── [M] AuthenticatedSessionController.php   (bloqueia status=analise, redireciona para crud.index)
+    │   │       └── [M] RegisteredUserController.php         (não loga após registro, redireciona para em-analise)
+    │   └── Middleware/
+    │       ├── [+] ChecarNivelAcesso.php      (protege rotas por nivel: usuario / admin)
+    │       └── [M] HandleInertiaRequests.php  (share: nivel no auth.user, menu_sistema, flash global)
+    ├── Models/
+    │   ├── [M] User.php                       (fillable: status, nivel — método temAcesso())
+    │   ├── [+] Projeto.php                    (fillable, appends data_br, accessor Carbon)
+    │   └── [+] Menu.php                       (relações: filhos, filhosRecursivos, pai)
+    ├── Repositories/
+    │   ├── [+] UserRepository.php             (Onde de fato as consultas ficam armazenadas)
+    │   └── .... E outros repositories.
+    ├── Providers/
+    │   └── [+] TelescopeServiceProvider.php   (gerado pelo telescope:install)
+    ├── Mail/
+    │   └── [+] Exemplo de disparo de Email
+    └── Services/    
+        └── [+] Exemplo de algo que seja considerado um serviço, consulta API externa...
+
+Bootstrap // Inicializador do Laravel.
+└── [M] app.php , local onde o ChecarNivelAcesso.php esta invocado, para uso global.
+
+DATABASE
+└── database/
+    ├── migrations/
+    │   ├── [+] 2026_06_01_..._create_telescope_entries_table.php
+    │   ├── [+] 2026_06_03_..._create_projetos_table.php
+    │   ├── [+] 2026_06_03_..._add_arquivo_to_projetos_table.php
+    │   ├── [+] 2026_06_03_..._add_status_to_users_table.php
+    │   ├── [+] 2026_06_04_..._add_nivel_to_users_table.php
+    │   └── [+] 2026_06_04_..._create_menu_table.php
+    └── seeders/
+        └── [+] MenuSeeder.php                 (dados iniciais do menu lateral)
+
+ROTAS
+└── routes/
+    └── [M] web.php                            (rotas crud prefix, rota em-analise, welcome em /1)
+
+RESOURCES
+└── resources/
+    ├── views/
+    │   └── [M] app.blade.php                  (fonte Inconsolata via Google Fonts)
+    ├── css/
+    │   └── [M] app.css                        (estilos globais h1~h6 via @apply)
+    └── js/
+        ├── [M] app.js                         (import bootstrap, título sem sufixo, bloqueio de F12)
+        ├── Layouts/
+        │   ├── [+] CrudLayout.vue             (layout do painel: sidebar + header + flash + footer)
+        │   └── [+] CrudLayoutNoMenu.vue       (header + flash + footer)
+        ├── Components/
+        │   ├── [+] FlashMessage.vue           (alerta sucesso/erro, fecha em 3s)
+        │   ├── [+] MenuLateral.vue            (sidebar com menu do banco + info do usuário)
+        │   ├── [+] MenuItemRecursivo.vue      (item de menu recursivo, accordion, link ativo)
+        │   ├── [+] ModalBs.vue                (modal Bootstrap reutilizável)
+        │   ├── [+] Paginacao.vue              (paginação a partir dos links do Laravel)
+        │   └── [+] Status.vue                 (badge ativo/inativo)
+        └── Pages/
+            ├── Auth/
+            │   ├── [M] Login.vue              (adicionado link "Criar Conta")
+            │   └── [+] EmAnalise.vue          (tela de espera pós-cadastro)
+            └── Crud/
+                └── [+] Index.vue              (listagem, modal cadastro/edição, upload, paginação)
+
+CONFIG
+└── config/
+    └── [+] telescope.php                      (gerado pelo telescope:install)

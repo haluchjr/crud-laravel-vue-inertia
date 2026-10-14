@@ -1,0 +1,86 @@
+#DEV
+services:
+  proxy:
+    image: 'nginx:alpine'
+    container_name: ${COMPOSE_PROJECT_NAME}_proxy
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      # - '443:443' # Descomente quando for usar SSL
+    volumes:
+      # Cria um espelhamento para colocar suas configurações customizadas lá dentro
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./docker/nginx/html:/usr/share/nginx/html
+    networks:
+      - app-net
+  backend:
+    container_name: ${COMPOSE_PROJECT_NAME}_backend
+    build:
+      context: .
+      dockerfile: ./docker/php8.3/Dockerfile
+      target: development # Para aqui!
+      args:
+        USER_ID: 1000
+        GROUP_ID: 1000
+    restart: unless-stopped
+    volumes:
+      - ./:/var/www/html # Espelha sua pasta
+    depends_on:
+      - cache
+      - db_mysql
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - app-net
+
+  frontend:
+    image: node:20-alpine
+    container_name: ${COMPOSE_PROJECT_NAME}_frontend
+    user: "1000:1000"
+    volumes:
+      - .:/var/www/html
+    working_dir: /var/www/html
+    ports:
+      - "${PORTA_VITE}:5173"
+    command: tail -f /dev/null
+    depends_on:
+      - backend
+    networks:
+      - app-net
+
+  cache:
+    image: redis:7-alpine
+    container_name: ${COMPOSE_PROJECT_NAME}_cache
+    restart: unless-stopped
+    ports:
+      - "${PORTA_REDIS}:6379"
+    volumes:
+      - cache_redis:/data
+    networks:
+      - app-net
+
+  db_mysql:
+    image: mysql:8.0
+    container_name: ${COMPOSE_PROJECT_NAME}_db_mysql
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password
+    ports:
+      - "${PORTA_MYSQL}:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${COMPOSE_PROJECT_NAME}_sistema
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - app-net
+
+volumes:
+  cache_redis:
+  db_data:
+
+networks:
+  app-net:
+    driver: bridge

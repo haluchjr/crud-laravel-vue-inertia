@@ -1,0 +1,180 @@
+<?php
+
+// namespace App\Http\Controllers;
+
+use App\Models\Cadastro;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Response;
+use App\Http\Requests\NovoUsuarioRequest;
+use Illuminate\Support\Facades\Crypt;
+
+use App\Repositories\CadastroRepository;
+
+class CadastroController extends Controller
+{
+    public function __construct(protected CadastroRepository $cadastroRepository) {
+        $this->cadastroRepository = $cadastroRepository;
+    }
+
+    /**
+     * Display a listing of the resource.
+     */
+    public function index()
+    {
+        $dados = $this->cadastroRepository->paginate(15);
+        
+        return Inertia::render('Cadastro/Index',['dados'=> $dados]);
+    }
+
+    
+
+    public function list(Request $request)
+    {
+        // Captura o que foi digitado (se houver)
+        $termoBusca = $request->input('busca');
+
+        // Se o seu Repository já aceita filtros, você pode passar o termo para ele.
+        // Se não, você pode ajustar o método paginate() do seu Repository para receber a busca:
+        $dados = $this->cadastroRepository->paginate(15, $termoBusca);
+
+        // O appends ou withQueryString garante que, se o usuário buscar algo e mudar de página, 
+        // o link da página 2 continue filtrado:
+        $dados->withQueryString();
+
+        return Inertia::render('Cadastro/Tabela', [
+            'dados' => $dados,
+            'filtros' => $request->only(['busca']), // Devolve o termo para o Vue manter o input preenchido
+        ]);
+    }
+
+
+    /**
+     * Store a newly created resource in storage.
+     */
+    public function store(NovoUsuarioRequest $request,)
+    {
+        // 1. Pega os dados validados
+        $dados = $request->validated();
+
+        // 2. Processa o arquivo e altera o valor de $dados['foto']
+        if ($request->hasFile('foto') && $request->file('foto')->isValid()) {
+            $arquivo = $request->file('foto');
+            
+            // 1. Gera um nome único aleatório para não sobrescrever arquivos
+            $nomeArquivo = md5(uniqid()) . '.' . $arquivo->getClientOriginalExtension();
+            
+            // 2. Move o arquivo DIRETO para public/usuarios/ dentro do seu projeto
+            $arquivo->move(public_path('usuarios'), $nomeArquivo);
+            
+            // 3. Salva no banco o caminho relativo
+            $dados['foto'] = 'usuarios/' . $nomeArquivo;
+        }
+
+        // 3. 🛑 O ERRO ESTAVA AQUI: Você deve passar $dados e NÃO $request->all()
+        if ($this->cadastroRepository->salvar($dados)) { // 💡 Mude de $request->all() para $dados
+            return redirect()->route('cadastro.list')->with('success', 'Cadastrado com sucesso!');
+        } else {
+            if (isset($caminhoFoto)) {
+                Storage::disk('public')->delete($caminhoFoto);
+            }
+            return redirect()->back()->with('error', 'Erro ao salvar.');
+        }
+
+    }
+
+    /**
+     * Display the specified resource.
+     */
+    public function show(Cadastro $cadastro)
+    {
+        //
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     */
+    public function edit($id)
+    {
+        $id = Crypt::decryptString($id);
+        $dados = $this->cadastroRepository->findById($id);
+        //return Inertia::render('Cadastro/Index',['dados'=> $dados]);
+        return inertia('Cadastro/Index', [
+            'dados' => $dados
+        ]);
+    }
+
+    /**
+     * Update the specified resource in storage.
+     */
+    public function update(NovoUsuarioRequest $request, $id)
+    {
+        try {
+            // 0. DESCRIPTOGRAFIA: Transforma a hash da URL de volta no ID real do banco (ex: 16)
+            $idReal = Crypt::decryptString($id);
+        } catch (\Illuminate\Contracts\Encryption\DecryptException $e) {
+            return redirect()->back()->with('error', 'Código de identificação inválido.');
+        }
+
+        // 1. Pega os dados validados pelo seu Form Request
+        $dados = $request->validated();
+        
+        // 2. CORRIGIDO: Busca o registro usando o ID REAL descriptografado
+        $usuario = $this->cadastroRepository->findById($idReal); 
+
+        // Segurança extra: Se mesmo com o ID real o repositório não achar o usuário
+        if (!$usuario) {
+            return redirect()->back()->with('error', 'Usuário não encontrado para atualização.');
+        }
+
+        // 3. Verifica se um NOVO arquivo de foto foi enviado
+        if ($request->hasFile('foto') && $request->file('foto')->isValid()) {
+            $arquivo = $request->file('foto');
+            
+            // 💡 DELETAR A FOTO ANTIGA: Se o usuário já tinha uma foto salva, apaga ela direto da pasta pública
+            if ($usuario->foto && file_exists(public_path($usuario->foto))) {
+                unlink(public_path($usuario->foto)); // Deleta o arquivo físico antigo
+            }
+
+            // 💡 SALVAR A FOTO NOVA: Gera um nome único aleatório
+            $nomeArquivo = md5(uniqid()) . '.' . $arquivo->getClientOriginalExtension();
+            
+            // Move o arquivo direto para public/usuarios/
+            $arquivo->move(public_path('usuarios'), $nomeArquivo);
+            
+            // Define o caminho limpo que vai pro banco de dados (ex: 'usuarios/abc123...png')
+            $dados['foto'] = 'usuarios/' . $nomeArquivo;
+
+        } else {
+            // 💡 TRUQUE DO INERTIA: Se não veio um arquivo novo, removemos do array para manter a antiga intacta
+            unset($dados['foto']);
+        }
+
+        // 4. CORRIGIDO: Envia o ID REAL para o repositório atualizar no MySQL
+        if ($this->cadastroRepository->atualizar($idReal, $dados)) {
+            // Como você está usando telas separadas, o ideal é redirecionar de volta para a LISTAGEM (.list)
+            // Mas se quiser ficar na mesma tela limpando a sessão, mantém o back()
+            return redirect()->route('cadastro.list')->with('success', 'Cadastro atualizado com sucesso!');
+        }
+        
+        return redirect()->back()->with('error', 'Erro ao atualizar cadastro.');
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy($id)
+    {
+        $id = Crypt::decryptString($id);
+
+        if ($this->cadastroRepository->deletar($id)){
+            // Usar log...
+            // Quem apagou.
+            // Usar regra do soft delete, flag pra tirar da consulta porem manter o dado no banco, recuperar facil.
+            
+            return redirect()->back()->with('success', "Registro ID {$id} excluído com sucesso!");
+        }
+        return redirect()->back()->with('error', "Registro ID {$id} excluído com sucesso!");
+    }
+}
