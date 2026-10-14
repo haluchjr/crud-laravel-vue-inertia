@@ -7,13 +7,8 @@ import { Head , usePage, Link } from '@inertiajs/vue3'
 import Label from '@/Components/Label.vue';
 import btnsalvar from "@/Components/BtnSalvar.vue"
 
-import Checkbox from '@/Components/Checkbox.vue'
-
 import { mask } from 'vue-the-mask';
 const page = usePage()
-const permissoes = computed(() => page.props.auth.user.permissoes)
-const somenteLeitura = computed(() => !permissoes.value.salvar);
-
 const props = defineProps({
     dados_pessoais: Object, // se tiver dados da listagem
 });
@@ -38,7 +33,8 @@ const enviar = () => {
 
 <template>
     <form @submit.prevent="enviar" class="container mt-4">
-    <fieldset :disabled="somenteLeitura">
+    <!-- <fieldset :disabled="somenteLeitura"> -->
+    <fieldset >
         <div class="row"> 
             <div class="col-md-9">
                 <Label forId="cep">Nome</Label>
@@ -73,7 +69,7 @@ const enviar = () => {
             </div>
 
         </div>
-        <span v-if="permissoes.salvar">
+        <span >
             <div class="row mt-3">
                 <div class="col-md-12 d-flex justify-content-start">
                     <btnsalvar>Salvar</btnsalvar>

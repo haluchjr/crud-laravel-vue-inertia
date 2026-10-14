@@ -38,6 +38,7 @@ class UsuarioController extends Controller
     }
 
     public function alterarDados(){
+        // print_r(Auth::user()->hasPermission(Route::currentRouteName(),'botoes',true));        exit;
         return Inertia::render('Usuario/MeusDados',[
             'dados_pessoais'        => $this->usuarioRepository->visualizaCadastroPorId(Auth::user()->id),
             'tipos_enderecos'       => $this->tipoEnderecoRepository->findAll(),

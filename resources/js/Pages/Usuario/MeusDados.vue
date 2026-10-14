@@ -12,7 +12,6 @@ defineProps({
   endereco_editado : Object,
 });
 
-
 </script>
 
 <template>
