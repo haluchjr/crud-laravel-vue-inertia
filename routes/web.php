@@ -55,7 +55,9 @@ Route::middleware('auth')->group(function () {
 
     Route::prefix('comercial')->group(function(){       });
 
-    Route::prefix('financeiro')->group(function(){      });
+    Route::prefix('financeiro')->group(function(){ 
+        Route::get('dashboard',[PedidoFinanceiro::class,'dashBoard'])->name('financeiro.dashboard');
+    });
 
     Route::prefix('preimpressao')->group(function(){    });
 
